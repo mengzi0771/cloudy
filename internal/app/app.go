@@ -275,6 +275,7 @@ type app struct {
 	deck          deckState    // the home page's calendar of the daily and style cards
 	week          weekState    // the songs played most in the last seven days
 	hist          historyDaily // the past daily recommendations NetEase keeps
+	snaps         snapshots    // the days of them Cloudy itself kept
 	deckDrawer    bool         // the settings' drawer of what the calendar holds is open
 	deckSort      deckSort     // a page dragged to a new place in that drawer
 	queueAdding   bool         // the queue's drawer of playlists to add it to is open

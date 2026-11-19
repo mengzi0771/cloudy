@@ -1,6 +1,8 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -26,6 +28,12 @@ func newTestApp() *app {
 	a.dl.fixed = true
 	// The songs played on this computer are none, not the developer's.
 	a.recent.loaded = true
+	// Neither are the days of the daily recommendations Cloudy kept, which
+	// tests write beside themselves.
+	a.snaps.loaded = true
+	snapshotPath = func() (string, error) {
+		return filepath.Join(os.TempDir(), "cloudy-test-daily-snapshots.json"), nil
+	}
 	// The system is not asked, as no app runs: starting at login is off,
 	// and the outputs are none.
 	off := false

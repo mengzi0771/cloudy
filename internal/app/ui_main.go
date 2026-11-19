@@ -726,6 +726,9 @@ func (a *app) loadHome() {
 			}
 			a.featured, a.charts, a.daily, a.recPlaylists = featured, charts, daily, rec
 			a.homeAt = at
+			// The day is kept, so the 历史日推 page shows it once NetEase
+			// stops keeping it.
+			a.rememberDaily(daily, at)
 		})
 	}()
 }

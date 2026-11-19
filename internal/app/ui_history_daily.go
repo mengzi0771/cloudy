@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"netease-music-mygo/internal/netease"
@@ -18,8 +19,9 @@ type historyDaily struct {
 	forUser int64 // the account the days are of
 	asked   bool  // the days were asked for
 
-	days    []string // newest first, YYYY-MM-DD
-	note    string   // NetEase's words: how many it keeps, or why there are none
+	days    []string        // newest first, YYYY-MM-DD
+	local   map[string]bool // the days shown from Cloudy's own record
+	note    string          // NetEase's words: how many it keeps, or why there are none
 	daysErr string
 
 	date    string // the day picked
@@ -60,13 +62,40 @@ func (a *app) loadHistoryDays() {
 				h.daysErr = "历史日推加载失败"
 				return
 			}
-			h.days = days.Dates
+			h.days, h.local = a.keptDays(days.Dates)
 			h.note = days.Note
 			if h.date == "" && len(h.days) > 0 {
 				a.pickHistoryDay(h.days[0])
 			}
 		})
 	}()
+}
+
+// keptDays puts among the days NetEase listed the ones Cloudy kept of the
+// daily recommendations that it no longer lists, newest first, and says
+// which of them are from that record.
+func (a *app) keptDays(listed []string) ([]string, map[string]bool) {
+	days := append([]string(nil), listed...)
+	if a.profile == nil {
+		return days, nil
+	}
+	known := make(map[string]bool, len(listed))
+	for _, day := range listed {
+		known[day] = true
+	}
+	var local map[string]bool
+	for _, day := range a.snapshotDates(a.profile.UserID) {
+		if known[day] {
+			continue
+		}
+		if local == nil {
+			local = map[string]bool{}
+		}
+		local[day] = true
+		days = append(days, day)
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(days)))
+	return days, local
 }
 
 // pickHistoryDay shows the songs NetEase recommended on date, from the cache
@@ -80,6 +109,13 @@ func (a *app) pickHistoryDay(date string) {
 	if songs, ok := h.cache[date]; ok {
 		h.songs, h.loading = songs, false
 		return
+	}
+	if h.local[date] {
+		// NetEase no longer answers for it: Cloudy's own record has it.
+		if songs := a.snapshotSongs(date, a.profile.UserID); len(songs) > 0 {
+			h.cacheOf(date, songs)
+			return
+		}
 	}
 	h.loading = true
 	accountGen := a.accountGen
@@ -95,6 +131,8 @@ func (a *app) pickHistoryDay(date string) {
 				return
 			}
 			h.cacheOf(date, songs)
+			// The day is kept, so the page shows it once NetEase stops.
+			a.keepDay(date, songs, time.Now())
 		})
 	}()
 }
@@ -186,6 +224,9 @@ func (a *app) historyPage(c *ui.Context) {
 			})
 			if h.note != "" {
 				ui.Text(c, h.note).FontSize(12).TextColor(p.faint)
+			}
+			if h.local[h.date] {
+				ui.Text(c, "这天来自 Cloudy 自己记下的每日推荐").FontSize(12).TextColor(p.faint)
 			}
 		})
 	}
