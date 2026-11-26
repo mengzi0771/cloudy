@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"netease-music-mygo/internal/netease"
 )
@@ -58,6 +59,24 @@ func TestPlayNowIntoAnEmptyQueue(t *testing.T) {
 		settleRetries(ch)
 		if got := playOrder(p); !slices.Equal(got, []int64{7}) || p.Current() == nil || p.Current().ID != 7 {
 			t.Fatalf("order %v, current %v", got, p.Current())
+		}
+	})
+}
+
+// Playing an identified song keeps its start position during loading and preserves the queue.
+func TestPlayNowAtWhileLoading(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		quietNavigation(t)
+		songURL = func(context.Context, int64, string) (*netease.Stream, error) { return nil, context.DeadlineExceeded }
+		p, ch := navigationPlayer(t, []netease.Track{{ID: 1}, {ID: 2}, {ID: 3}})
+		p.PlayNowAt(netease.Track{ID: 3}, 45*time.Second)
+		settleRetries(ch)
+		if got := playOrder(p); !slices.Equal(got, []int64{1, 3, 2}) || p.Current().ID != 3 || p.Position() != 45*time.Second {
+			t.Fatalf("order=%v, current=%v, position=%v", got, p.Current(), p.Position())
+		}
+		p.PlayNowAt(netease.Track{ID: 3}, 0)
+		if p.Position() != 0 {
+			t.Fatalf("explicit start did not replace the pending seek: %v", p.Position())
 		}
 	})
 }

@@ -29,6 +29,7 @@ func (a *app) setNpFull(v bool) {
 // hideMain hides the main window, out of full screen first, so that it
 // does not come back covering the screen.
 func (a *app) hideMain() {
+	a.closeSongRecognition()
 	a.closePrivateMessages()
 	a.setNpFull(false)
 	if a.win != nil {

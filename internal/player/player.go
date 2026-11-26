@@ -275,6 +275,10 @@ func (p *Player) ended() {
 
 // PlayQueue replaces the queue with tracks and plays the one at start.
 func (p *Player) PlayQueue(tracks []netease.Track, start int) {
+	p.playQueue(tracks, start, 0)
+}
+
+func (p *Player) playQueue(tracks []netease.Track, start int, from time.Duration) {
 	if len(tracks) == 0 {
 		return
 	}
@@ -287,10 +291,9 @@ func (p *Player) PlayQueue(tracks []netease.Track, start int) {
 	}
 	if p.shuffle {
 		p.shuffleOrder(start)
-		p.load(0)
-		return
+		start = 0
 	}
-	p.load(start)
+	p.loadSkipping(start, 0, true, from, 1)
 }
 
 // AddToQueue adds tracks to the end of the queue without changing what

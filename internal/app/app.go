@@ -181,6 +181,8 @@ type app struct {
 	suggestions  suggestState          // what the search field's query may be after
 	suggestShown suggestShown          // what the search field's popup showed last, as it goes
 
+	songRecognition recognitionView
+
 	nowPlaying  bool
 	npFull      bool       // Now Playing taking the whole screen
 	fullHintAt  time.Time  // when the bubble telling of F11 first showed in this run
@@ -581,6 +583,7 @@ func Run() error {
 		}
 	}
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {
+		a.closeSongRecognition()
 		a.closePrivateMessages()
 		a.quitting = true
 		keep()
@@ -590,6 +593,7 @@ func Run() error {
 	// at every start (a viewer, 1.3.2).
 	mygo.App.OnQuit(func() {
 		if !a.quitting {
+			a.closeSongRecognition()
 			a.closePrivateMessages()
 			a.quitting = true
 			keep()

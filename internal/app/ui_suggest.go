@@ -104,6 +104,7 @@ func (a *app) searchField(c *ui.Context) {
 		cb := ui.ComboboxBase(c.Key("search"), &a.query)
 		in := cb.Input.Bind(&a.searchBox).Grow(1).MinWidth(0).
 			Placeholder("搜索歌曲、歌手、播客").FontSize(13).Label("搜索")
+		a.songRecognitionButton(c)
 		q := strings.TrimSpace(a.query)
 		s := &a.suggestions
 		switch {
