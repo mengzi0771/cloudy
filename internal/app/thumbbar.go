@@ -67,27 +67,21 @@ func (a *app) syncThumbs() {
 	case st.track == 0 || st.switcher:
 		if !window {
 			a.win.SetThumbnail(nil) // the window again
-			a.thumbCoverOf = 0
 		}
 	case st.cover && (at == nil || window || at.track != st.track || !at.cover):
 		// The new cover is in. Until it is, the one before stays: going
 		// back to the window in between, which shows nothing while it is
 		// minimized or in the tray, left the thumbnail blank.
-		if thumbNeedsReset(a.thumbCoverOf, st.track) {
+		if at != nil && !window && at.track != st.track {
 			// Windows 10 kept the last thumbnail's frame for a new cover
 			// and stretched it until the pointer came back over the
-			// taskbar (a viewer, 1.3.1; #89). Off and on again in the same
-			// breath, DWM measures the new one afresh. Compare against the
-			// cover actually shown rather than at.track: a song switch
-			// updates thumbsAt before its cover arrives, so at.track already
-			// matches when the new cover lands.
+			// taskbar (a viewer, 1.3.1). Off and on again in the same
+			// breath, DWM measures the new one afresh.
 			a.win.SetThumbnail(nil)
-			a.thumbCoverOf = 0
 		}
 		// Match the player bar for animated WebP art: the system's
 		// image decoder needs a still frame rather than the animation.
 		a.win.SetThumbnail(stillCover(a.pl.Cover()))
-		a.thumbCoverOf = st.track
 	}
 	if st.track == 0 {
 		a.win.SetThumbButtons(nil)
@@ -114,15 +108,6 @@ func (a *app) syncThumbs() {
 		{Icon: thumbGlyph(glyphNext, ink), Tooltip: "下一首", Click: act(a.pl.Next)},
 		{Icon: heart, Tooltip: heartTip, Disabled: !st.canLike, Click: act(a.likeCurrent)},
 	})
-}
-
-// thumbNeedsReset reports whether the thumbnail must be cleared before
-// showing track's cover. Only when another song's cover is on screen does
-// Windows 10 reuse the old frame and stretch the new cover into it; showing
-// the first cover, returning from the window itself, or refreshing the same
-// song's cover needs no reset.
-func thumbNeedsReset(shownOf, track int64) bool {
-	return shownOf != 0 && shownOf != track
 }
 
 // songTitle is the window's title for a song: its name and its artists,
