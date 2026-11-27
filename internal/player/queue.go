@@ -2,6 +2,7 @@ package player
 
 import (
 	"slices"
+	"time"
 
 	"netease-music-mygo/internal/netease"
 )
@@ -13,6 +14,19 @@ import (
 // already queued move there, the others join the queue. With nothing
 // playing, the first of them starts. It returns how many it placed.
 func (p *Player) PlayNext(tracks []netease.Track) int {
+	placed := p.placeNext(tracks)
+	if placed > 0 {
+		if p.track == nil {
+			p.load(max(p.at, 0))
+		} else {
+			p.sync()
+		}
+	}
+	return placed
+}
+
+// placeNext puts tracks in the queue without starting playback.
+func (p *Player) placeNext(tracks []netease.Track) int {
 	if len(tracks) == 0 {
 		return 0
 	}
@@ -45,11 +59,6 @@ func (p *Player) PlayNext(tracks []netease.Track) int {
 		return 0
 	}
 	p.order = slices.Insert(p.order, p.at+1, picked...)
-	if p.track == nil {
-		p.load(max(p.at, 0))
-		return placed
-	}
-	p.sync()
 	return placed
 }
 
@@ -59,20 +68,39 @@ func (p *Player) PlayNext(tracks []netease.Track) int {
 // radio playing ends, as a queue of its own does. t playing already goes
 // on, from where it is.
 func (p *Player) PlayNow(t netease.Track) {
+	p.playNow(t, -1)
+}
+
+// PlayNowAt plays t from an explicit point, including when it is already current.
+func (p *Player) PlayNowAt(t netease.Track, from time.Duration) {
+	p.playNow(t, max(from, 0))
+}
+
+func (p *Player) playNow(t netease.Track, from time.Duration) {
 	p.endRadio()
 	if len(p.order) == 0 {
-		p.PlayQueue([]netease.Track{t}, 0)
+		p.playQueue([]netease.Track{t}, 0, max(from, 0))
 		return
 	}
 	if p.track != nil && p.track.ID == t.ID {
+		if from >= 0 {
+			if !p.playing && !p.loading && p.out == nil {
+				p.loadSkipping(p.at, 0, true, from, 1)
+				return
+			}
+			p.Seek(from)
+			if !p.playing && p.out != nil {
+				p.resume(false)
+				return
+			}
+		}
 		if !p.playing {
 			p.TogglePlay()
 		}
 		return
 	}
-	p.PlayNext([]netease.Track{t})
-	if k := slices.IndexFunc(p.queue, func(q netease.Track) bool { return q.ID == t.ID }); k >= 0 {
-		p.Jump(k)
+	if p.placeNext([]netease.Track{t}) > 0 {
+		p.loadSkipping(p.at+1, 0, true, max(from, 0), 1)
 	}
 }
 

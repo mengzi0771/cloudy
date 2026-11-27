@@ -143,6 +143,7 @@ func (a *app) view(c *ui.Context) {
 	a.fontPickerDialog(c)
 	a.effectsDialog(c)
 	a.lyricDownloadDialog(c)
+	a.songRecognitionDialog(c)
 	a.menuOverlay(c)
 	a.downloadQueueDialog(c)
 	a.uploadQueueDialog(c)

@@ -275,6 +275,10 @@ func (p *Player) ended() {
 
 // PlayQueue replaces the queue with tracks and plays the one at start.
 func (p *Player) PlayQueue(tracks []netease.Track, start int) {
+	p.playQueue(tracks, start, 0)
+}
+
+func (p *Player) playQueue(tracks []netease.Track, start int, from time.Duration) {
 	if len(tracks) == 0 {
 		return
 	}
@@ -287,10 +291,9 @@ func (p *Player) PlayQueue(tracks []netease.Track, start int) {
 	}
 	if p.shuffle {
 		p.shuffleOrder(start)
-		p.load(0)
-		return
+		start = 0
 	}
-	p.load(start)
+	p.loadSkipping(start, 0, true, from, 1)
 }
 
 // AddToQueue adds tracks to the end of the queue without changing what
@@ -627,9 +630,16 @@ func (p *Player) TogglePlay() {
 		p.sync()
 		return
 	}
+	p.resume(true)
+}
+
+// resume can restart an ended track for the play button. An explicit seek
+// followed by play must keep the requested position, even near the end.
+func (p *Player) resume(restartAtEnd bool) {
+	out := p.out
 	p.playing = true
 	if !p.seeking && !out.Playing() {
-		if d := out.Duration(); d > 0 && out.Position() >= d-time.Second {
+		if d := out.Duration(); restartAtEnd && d > 0 && out.Position() >= d-time.Second {
 			out.Seek(0)
 		}
 		out.Play()
