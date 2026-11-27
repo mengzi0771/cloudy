@@ -72,8 +72,23 @@ var playlistSorts = []struct{ id, label string }{
 // set to list all of them.
 const sidebarShown = 8
 
-// openMine opens the listener's page with kind opened, as from the sidebar
-// for the rest of a group.
+// mineOnly is the filter that narrows the listener's page to kind, or
+// onlyAll for a kind that shows only among all.
+func mineOnly(kind string) int {
+	switch kind {
+	case mineMade, mineSaved:
+		return onlyPlaylists
+	case mineAlbums:
+		return onlyAlbums
+	case mineArtists:
+		return onlyArtists
+	}
+	return onlyAll
+}
+
+// openMine opens the listener's page narrowed to kind, as from the sidebar
+// for the rest of a group. It also marks kind open so switching the filter
+// back to all keeps it expanded.
 func (a *app) openMine(kind string) {
 	if a.profile == nil {
 		return
@@ -82,7 +97,7 @@ func (a *app) openMine(kind string) {
 	if v.open == nil {
 		v.open = map[string]bool{}
 	}
-	v.open[kind], v.query = true, ""
+	v.open[kind], v.query, v.only = true, "", mineOnly(kind)
 	a.open(route{page: pageUser, id: a.profile.UserID})
 }
 
