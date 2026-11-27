@@ -78,3 +78,26 @@ func TestSongTitle(t *testing.T) {
 		t.Errorf("title without the app's name %q", got)
 	}
 }
+
+// Replacing another song's cover resets the thumbnail first so Windows 10
+// remeasures it, even when the cover arrived after the song switched (#89).
+func TestThumbNeedsReset(t *testing.T) {
+	cases := []struct {
+		name    string
+		shownOf int64
+		track   int64
+		want    bool
+	}{
+		{name: "cover arrives after track switch", shownOf: 1, track: 2, want: true},
+		{name: "first cover shown", shownOf: 0, track: 1, want: false},
+		{name: "same track cover refreshed", shownOf: 1, track: 1, want: false},
+		{name: "window currently shown", shownOf: 0, track: 2, want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := thumbNeedsReset(tc.shownOf, tc.track); got != tc.want {
+				t.Errorf("thumbNeedsReset(%d, %d) = %v, want %v", tc.shownOf, tc.track, got, tc.want)
+			}
+		})
+	}
+}

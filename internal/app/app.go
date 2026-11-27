@@ -67,12 +67,14 @@ type app struct {
 	trayPopupDone   chan struct{}
 	trayPopupClosed time.Time
 
-	// thumbsAt is what the taskbar thumbnail shows (thumbbar.go),
-	// thumbDark whether the taskbar is dark, and altTab whether Alt+Tab is
-	// open (thumbswitch_windows.go).
-	thumbsAt  *thumbState
-	thumbDark bool
-	altTab    bool
+	// thumbsAt is the last state synced to the taskbar thumbnail
+	// (thumbbar.go), thumbCoverOf the song whose cover it shows (0 when the
+	// window itself shows), thumbDark whether the taskbar is dark, and
+	// altTab whether Alt+Tab is open (thumbswitch_windows.go).
+	thumbsAt     *thumbState
+	thumbCoverOf int64
+	thumbDark    bool
+	altTab       bool
 
 	route   route
 	history []route
