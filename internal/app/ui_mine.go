@@ -21,9 +21,10 @@ import (
 // mineView is the search on the listener's page and the kinds opened on
 // it, kept while it is away.
 type mineView struct {
-	query string
-	box   ui.Handle
-	open  map[string]bool // by the key of the kind
+	query       string
+	box         ui.Handle
+	open        map[string]bool // by the key of the kind
+	locateSaved bool            // reveal the saved playlist section once
 	// only is the kind the page is narrowed to, of mineFilters: 0 for all.
 	only int
 }
@@ -72,8 +73,23 @@ var playlistSorts = []struct{ id, label string }{
 // set to list all of them.
 const sidebarShown = 8
 
-// openMine opens the listener's page with kind opened, as from the sidebar
-// for the rest of a group.
+// mineOnly is the filter that narrows the listener's page to kind, or
+// onlyAll for a kind that shows only among all.
+func mineOnly(kind string) int {
+	switch kind {
+	case mineMade, mineSaved:
+		return onlyPlaylists
+	case mineAlbums:
+		return onlyAlbums
+	case mineArtists:
+		return onlyArtists
+	}
+	return onlyAll
+}
+
+// openMine opens the listener's page narrowed to kind, as from the sidebar
+// for the rest of a group. It also marks kind open so switching the filter
+// back to all keeps it expanded.
 func (a *app) openMine(kind string) {
 	if a.profile == nil {
 		return
@@ -82,8 +98,13 @@ func (a *app) openMine(kind string) {
 	if v.open == nil {
 		v.open = map[string]bool{}
 	}
-	v.open[kind], v.query = true, ""
-	a.open(route{page: pageUser, id: a.profile.UserID})
+	v.open[kind], v.query, v.only = true, "", mineOnly(kind)
+	v.locateSaved = kind == mineSaved
+	r := route{page: pageUser, id: a.profile.UserID}
+	if a.route == r && !v.locateSaved {
+		a.pageScroll.Y = 0
+	}
+	a.open(r)
 }
 
 // sideShown is how many of n rows the sidebar lists.
@@ -364,6 +385,8 @@ func (a *app) orderChip(c *ui.Context, label string, menu [][]menuAction) {
 
 // minePage is the part of the listener's own page under who they are.
 func (a *app) minePage(c *ui.Context, d *userData) {
+	locateSaved := a.mineView.locateSaved
+	a.mineView.locateSaved = false
 	q := mineQuery(a.mineView.query)
 	a.mineSearch(c)
 	cardCols := a.columns(c, 168)
@@ -397,13 +420,19 @@ func (a *app) minePage(c *ui.Context, d *userData) {
 			if !a.mineView.shown(kind) || !shows(len(lists)) || !mine && len(all) == 0 {
 				continue
 			}
-			open := a.foldHead(c, kind, title, len(lists), cardCols, a.playlistOrder)
-			if len(all) == 0 {
-				a.empty(c, "还没有创建歌单")
-				continue
+			group := ui.Column(c.Key(kind))
+			if locateSaved && kind == mineSaved {
+				group.ScrollIntoView()
 			}
-			a.foldGrid(c, kind, open, len(lists), cardCols, 28, cardGrid, func(c *ui.Context, i int) {
-				a.minePlaylistCard(c, &lists[i], mine)
+			group.Children(func() {
+				open := a.foldHead(c, kind, title, len(lists), cardCols, a.playlistOrder)
+				if len(all) == 0 {
+					a.empty(c, "还没有创建歌单")
+					return
+				}
+				a.foldGrid(c, kind, open, len(lists), cardCols, 28, cardGrid, func(c *ui.Context, i int) {
+					a.minePlaylistCard(c, &lists[i], mine)
+				})
 			})
 		}
 	}

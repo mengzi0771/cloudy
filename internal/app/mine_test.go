@@ -121,7 +121,7 @@ func TestFilterArtistsAndPodcasts(t *testing.T) {
 }
 
 // The sidebar lists the first few of a group, with a row to the listener's
-// page, that kind opened there; set to, it lists them all.
+// page narrowed to that kind; set to, it lists them all.
 func TestSidebarListsTheFirstFew(t *testing.T) {
 	a := mineApp(t, 12)
 	tt := ui.NewTester(a.view, 1280, 820)
@@ -134,11 +134,19 @@ func TestSidebarListsTheFirstFew(t *testing.T) {
 	}
 	tt.Advance(time.Second)
 	tt.Frame()
-	if a.route != (route{page: pageUser, id: 1}) || !a.mineView.open[mineMade] {
-		t.Fatalf("查看全部 opened %+v, opened kinds %v", a.route, a.mineView.open)
+	// Sidebar 查看全部 jumps to the listener's page narrowed to that kind.
+	if a.route != (route{page: pageUser, id: 1}) || !a.mineView.open[mineMade] || a.mineView.only != onlyPlaylists {
+		t.Fatalf("查看全部 opened %+v, only %d, opened kinds %v", a.route, a.mineView.only, a.mineView.open)
 	}
+	if !tt.HasText("歌单 12") || tt.HasText("收藏的专辑") {
+		t.Error("the page does not show only the playlists opened")
+	}
+	if err := tt.Click("全部"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
 	if !tt.HasText("歌单 12") || !tt.HasText("收起") {
-		t.Error("the page does not show the playlists opened")
+		t.Error("switching back to all does not keep the playlists opened")
 	}
 
 	b := mineApp(t, 12)
@@ -147,6 +155,62 @@ func TestSidebarListsTheFirstFew(t *testing.T) {
 	bt.Frame()
 	if !bt.HasText("歌单 12") || bt.HasText("查看全部 12 个") {
 		t.Error("set to list them all, the sidebar still cuts the list short")
+	}
+}
+
+// The saved-playlist shortcut scrolls past a long list of created playlists.
+func TestSidebarLocatesSavedPlaylists(t *testing.T) {
+	a := mineApp(t, 48)
+	for i := range sidebarShown + 1 {
+		a.saved = append(a.saved, netease.Playlist{ID: int64(901 + i), Name: fmt.Sprintf("收藏歌单 %d", i+2)})
+	}
+	a.route = route{page: pageHome}
+	tt := ui.NewTester(a.view, 1280, 1400)
+	if err := tt.Click("查看全部 10 个"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Advance(time.Second)
+	tt.Frame()
+	if a.route != (route{page: pageUser, id: 1}) || a.mineView.only != onlyPlaylists || a.pageScroll.Y <= 0 {
+		t.Fatalf("saved playlists opened at %+v, filter %d, scroll %v", a.route, a.mineView.only, a.pageScroll.Y)
+	}
+	card, ok := tt.Find("收藏歌单 10") // beyond the eight sidebar entries
+	if !ok || card.Y >= 1400 {
+		t.Fatalf("the saved group is still below the viewport: %v (found %v)", card, ok)
+	}
+	if err := tt.Click("查看全部 48 个"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if a.pageScroll.Y != 0 {
+		t.Fatalf("the created playlists did not return to the top: %v", a.pageScroll.Y)
+	}
+}
+
+// Opening a kind from the sidebar narrows the listener's page to that kind
+// (previously it left the filter on all) and clears any search.
+func TestOpenMineNarrows(t *testing.T) {
+	a := mineApp(t, 12)
+	cases := []struct {
+		kind string
+		want int
+	}{
+		{mineMade, onlyPlaylists},
+		{mineSaved, onlyPlaylists},
+		{mineAlbums, onlyAlbums},
+		{mineArtists, onlyArtists},
+		{minePodcasts, onlyAll},
+	}
+	for _, tc := range cases {
+		a.mineView.query = "stale"
+		a.openMine(tc.kind)
+		if a.route != (route{page: pageUser, id: 1}) {
+			t.Fatalf("openMine(%q) opened %+v", tc.kind, a.route)
+		}
+		if a.mineView.only != tc.want || !a.mineView.open[tc.kind] || a.mineView.query != "" {
+			t.Errorf("openMine(%q): only=%d (want %d), open=%v, query=%q",
+				tc.kind, a.mineView.only, tc.want, a.mineView.open[tc.kind], a.mineView.query)
+		}
 	}
 }
 
